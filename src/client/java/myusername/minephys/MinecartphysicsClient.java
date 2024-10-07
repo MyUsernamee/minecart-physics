@@ -4,6 +4,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.minecraft.client.render.entity.model.EntityModelLayer;
+import net.minecraft.client.render.entity.model.MinecartEntityModel;
 import net.minecraft.util.Identifier;
 import myusername.minephys.PhysicsEntity;
 
@@ -21,6 +22,6 @@ public class MinecartphysicsClient implements ClientModInitializer {
 			return new PhysicsEntityRenderer(context);
 		});
 
-		EntityModelLayerRegistry.registerModelLayer(CUBE_LAYER, CubeModel::getTexturedModelData);
+		EntityModelLayerRegistry.registerModelLayer(CUBE_LAYER, MinecartEntityModel::getTexturedModelData);
 	}
 }

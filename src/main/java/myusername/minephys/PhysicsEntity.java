@@ -9,6 +9,9 @@ import org.joml.Vector4fc;
 import org.ode4j.math.*;
 import org.ode4j.ode.*;
 
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.DebugRender;
+import net.minecraft.block.entity.StructureBlockBlockEntity.Action;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.MovementType;
@@ -17,17 +20,29 @@ import net.minecraft.entity.data.TrackedData;
 import net.minecraft.entity.data.TrackedDataHandler;
 import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.entity.data.DataTracker.Builder;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.util.ActionResult;
 import net.minecraft.util.BlockRotation;
+import net.minecraft.util.Hand;
+import net.minecraft.util.annotation.Debug;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
+import physx.common.PxQuat;
+import physx.common.PxTransform;
+import physx.common.PxVec3;
+import physx.geometry.PxBoxGeometry;
+import physx.physics.PxFilterData;
+import physx.physics.PxRigidBody;
+import physx.physics.PxRigidDynamic;
+import physx.physics.PxShape;
 
 public class PhysicsEntity extends Entity {
 
-    DBody body;
+    PxRigidDynamic body;
     private BlockPos b_pos;
-    DBox b;
     public static final TrackedData<Vector3f> rx = DataTracker.registerData(PhysicsEntity.class,
             TrackedDataHandlerRegistry.VECTOR3F);
     public static final TrackedData<Vector3f> ry = DataTracker.registerData(PhysicsEntity.class,
@@ -62,25 +77,71 @@ public class PhysicsEntity extends Entity {
         builder.add(rz, new Vector3f());
     }
 
+    @Override
+    public boolean isPushable() {
+        return true;
+    }
+
+    @Override
+    public ActionResult interact(PlayerEntity player, Hand hand) {
+        if (this.getWorld().isClient) {
+            return ActionResult.SUCCESS;
+        } else {
+
+            return player.startRiding(this) ? ActionResult.SUCCESS : ActionResult.PASS;
+
+        }
+    }
+
     public PhysicsEntity(EntityType<? extends Entity> entityType, World world) {
         super(entityType, world);
+        this.calculateDimensions();
+        this.setBoundingBox(new Box(0.0f, 0.0f, 0.0f, 10.0f, 10.0f, 10.0f));
+        this.intersectionChecked = true;
 
         this.dataTracker.set(rx, new Vector3f());
         this.dataTracker.set(ry, new Vector3f());
         this.dataTracker.set(rz, new Vector3f());
         if (world.isClient)
             return;
-        body = OdeHelper.createBody(Minecartphysics.phys_world);
+        Vec3d pos = this.getPos();
+        PxVec3 pxVec3 = new PxVec3((float) pos.x, (float) pos.y, (float) pos.z);
+        PxQuat pxQuat = new PxQuat(0.0f, 0.0f, 0.0f, 0.0f);
+        PxTransform pxTransform = new PxTransform(pxVec3, pxQuat);
+        body = Minecartphysics.physics.createRigidDynamic(pxTransform);
 
-        DMass m = OdeHelper.createMass();
+        PxBoxGeometry pxBoxGeometry = new PxBoxGeometry(0.55f, 0.25f, 0.49f);
+        PxShape pxShape = Minecartphysics.physics.createShape(pxBoxGeometry, Minecartphysics.default_material, true,
+                Minecartphysics.px_flags);
+        PxFilterData pxFilterData = new PxFilterData(1, 1, 0, 0);
+        pxShape.setSimulationFilterData(pxFilterData);
+        body.attachShape(pxShape);
+        Minecartphysics.phys_world.addActor(body);
+        body.setSleepThreshold(0.0f);
+        pxVec3.setX(0.0f);
+        pxVec3.setY(0.0f);
+        pxVec3.setZ(0.0f);
+        body.setLinearVelocity(pxVec3);
 
-        b = OdeHelper.createBox(Minecartphysics.phys_space, 1.0, 1.0, 1.0);
-        m.setBox(0.1, 1.0, 1.0, 1.0);
-        b.setBody(body);
-        body.setMass(m);
+        pxVec3.destroy();
+        pxQuat.destroy();
+        pxBoxGeometry.destroy();
+        pxFilterData.destroy();
 
-        body.setPosition(new DVector3(this.getPos().x, this.getPos().y + 10.0, this.getPos().z));
-        body.setLinearVel(0.0, 0.0, 0.0);
+    }
+
+    public void setPosition(double x, double y, double z) {
+        super.setPosition(x, y, z);
+        if (body == null)
+            return;
+        // Create temppxVec3 and temp PxQuat
+        PxVec3 pxVec3 = new PxVec3((float) x, (float) y, (float) z);
+        PxQuat pxQuat = new PxQuat(0.0f, 0.0f, 1.0f, 0.0f);
+        PxTransform pxTransform = new PxTransform(pxVec3, pxQuat);
+        body.setGlobalPose(pxTransform);
+        pxTransform.destroy();
+        pxVec3.destroy();
+        pxQuat.destroy();
     }
 
     @Override
@@ -88,18 +149,29 @@ public class PhysicsEntity extends Entity {
         // super.tick();
         if (getWorld().isClient)
             return;
-        this.move(MovementType.SELF,
-                new Vec3d(body.getPosition().get0() - this.getPos().x,
-                        body.getPosition().get1() - this.getPos().y,
-                        body.getPosition().get2() - this.getPos().z));
+
+        if (Double.isNaN(getPos().getX())) {
+            setPosition(new Vec3d(0.0, 0.0, 0.0));
+        }
+
+        super.setPos(body.getGlobalPose().getP().getX(), body.getGlobalPose().getP().getY(),
+                body.getGlobalPose().getP().getZ());
 
         DVector3 c0 = new DVector3();
         DVector3 c1 = new DVector3();
         DVector3 c2 = new DVector3();
 
-        body.getRotation().getColumn0(c0);
-        body.getRotation().getColumn1(c1);
-        body.getRotation().getColumn2(c2);
+        c0.set(body.getGlobalPose().getQ().getBasisVector0().getX(),
+                body.getGlobalPose().getQ().getBasisVector0().getY(),
+                body.getGlobalPose().getQ().getBasisVector0().getZ());
+
+        c1.set(body.getGlobalPose().getQ().getBasisVector1().getX(),
+                body.getGlobalPose().getQ().getBasisVector1().getY(),
+                body.getGlobalPose().getQ().getBasisVector1().getZ());
+
+        c2.set(body.getGlobalPose().getQ().getBasisVector2().getX(),
+                body.getGlobalPose().getQ().getBasisVector2().getY(),
+                body.getGlobalPose().getQ().getBasisVector2().getZ());
 
         this.dataTracker.set(rx, new Vector3f(c0.toFloatArray4()));
         this.dataTracker.set(ry, new Vector3f(c1.toFloatArray4()));
@@ -125,8 +197,7 @@ public class PhysicsEntity extends Entity {
     @Override
     public void remove(Entity.RemovalReason reason) {
 
-        body.destroy();
-        b.destroy();
+        body.release();
         super.remove(reason);
 
     }

@@ -2,6 +2,7 @@ package myusername.minephys;
 
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory.Context;
+import net.minecraft.client.render.entity.model.MinecartEntityModel;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Box;
@@ -19,17 +20,17 @@ import net.minecraft.client.render.debug.DebugRenderer;
 
 public class PhysicsEntityRenderer extends EntityRenderer<PhysicsEntity> {
 
-    CubeModel<PhysicsEntity> model;
+    MinecartEntityModel<PhysicsEntity> model;
 
     public PhysicsEntityRenderer(Context context) {
         super(context);
-        model = new CubeModel<PhysicsEntity>(context.getPart(MinecartphysicsClient.CUBE_LAYER));
+        model = new MinecartEntityModel<PhysicsEntity>(context.getPart(MinecartphysicsClient.CUBE_LAYER));
     }
 
     @Override
     public Identifier getTexture(PhysicsEntity entity) {
         // TODO Auto-generated method stub
-        return Identifier.of("minecart-physics", "image.png");
+        return Identifier.of("minecraft", "textures/entity/minecart.png");
     }
 
     /**
@@ -58,6 +59,7 @@ public class PhysicsEntityRenderer extends EntityRenderer<PhysicsEntity> {
 
         Quaternionf q = new Quaternionf();
         q.setFromUnnormalized(a);
+        matrices.translate(0.5, 0.5, 0.5);
         matrices.multiply(q);
         model.render(matrices, vertexConsumers.getBuffer(model.getLayer(getTexture(entity))), light, getOverlay(),
                 654311423);
