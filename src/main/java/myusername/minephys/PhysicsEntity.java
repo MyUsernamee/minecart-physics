@@ -1,31 +1,16 @@
 package myusername.minephys;
 
-import org.joml.Matrix4d;
-import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import org.joml.Vector4d;
-import org.joml.Vector4dc;
-import org.joml.Vector4fc;
 import org.ode4j.math.*;
-import org.ode4j.ode.*;
-
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.DebugRender;
-import net.minecraft.block.entity.StructureBlockBlockEntity.Action;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
-import net.minecraft.entity.MovementType;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.data.TrackedData;
-import net.minecraft.entity.data.TrackedDataHandler;
 import net.minecraft.entity.data.TrackedDataHandlerRegistry;
-import net.minecraft.entity.data.DataTracker.Builder;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.ActionResult;
-import net.minecraft.util.BlockRotation;
 import net.minecraft.util.Hand;
-import net.minecraft.util.annotation.Debug;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
@@ -35,7 +20,6 @@ import physx.common.PxTransform;
 import physx.common.PxVec3;
 import physx.geometry.PxBoxGeometry;
 import physx.physics.PxFilterData;
-import physx.physics.PxRigidBody;
 import physx.physics.PxRigidDynamic;
 import physx.physics.PxShape;
 

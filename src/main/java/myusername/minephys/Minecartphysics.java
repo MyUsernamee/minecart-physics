@@ -1,17 +1,13 @@
 package myusername.minephys;
 
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.minecraft.client.render.debug.DebugRenderer;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
-import net.minecraft.entity.data.TrackedDataHandler;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
 import net.minecraft.world.World;
 
 import physx.PxTopLevelFunctions;
@@ -19,11 +15,9 @@ import physx.common.*;
 import physx.geometry.PxBoxGeometry;
 import physx.physics.*;
 
-import org.ode4j.ode.OdeConstants;
 import java.util.Map;
 import java.util.HashMap;
 
-import org.ode4j.ode.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,8 +37,6 @@ public class Minecartphysics implements ModInitializer {
 	public static PxMaterial default_material;
 	public static final PxShapeFlags px_flags = new PxShapeFlags(
 			(byte) (PxShapeFlagEnum.eSCENE_QUERY_SHAPE.value | PxShapeFlagEnum.eSIMULATION_SHAPE.value));
-
-	private static boolean colliding = false;
 
 	public static final EntityType<PhysicsEntity> PHYS_ENTITY = Registry.register(
 			Registries.ENTITY_TYPE,
@@ -97,9 +89,6 @@ public class Minecartphysics implements ModInitializer {
 		blocks = new HashMap<>();
 		int version = PxTopLevelFunctions.getPHYSICS_VERSION();
 
-		int versionMajor = version >> 24;
-		int versionMinor = (version >> 16) & 0xff;
-		int versionMicro = (version >> 8) & 0xff;
 		PxFoundation foundation = PxTopLevelFunctions.CreateFoundation(version, new PxDefaultAllocator(),
 				new PxDefaultErrorCallback());
 
