@@ -1,6 +1,8 @@
 plugins {
 	id 'fabric-loom' version '1.7-SNAPSHOT'
 	id 'maven-publish'
+	id "com.gradleup.shadow" version '8.3.3'
+	id 'java'
 }
 
 version = project.mod_version
@@ -61,6 +63,10 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
 	it.options.release = 21
+}
+
+tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+  configurations = [project.configurations.runtimeClasspath]
 }
 
 java {
