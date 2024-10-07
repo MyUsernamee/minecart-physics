@@ -1,7 +1,6 @@
 package myusername.minephys;
 
 import org.joml.Vector3f;
-import org.ode4j.math.*;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.data.DataTracker;
@@ -141,9 +140,9 @@ public class PhysicsEntity extends Entity {
         super.setPos(body.getGlobalPose().getP().getX(), body.getGlobalPose().getP().getY(),
                 body.getGlobalPose().getP().getZ());
 
-        DVector3 c0 = new DVector3();
-        DVector3 c1 = new DVector3();
-        DVector3 c2 = new DVector3();
+        Vector3f c0 = new Vector3f();
+        Vector3f c1 = new Vector3f();
+        Vector3f c2 = new Vector3f();
 
         c0.set(body.getGlobalPose().getQ().getBasisVector0().getX(),
                 body.getGlobalPose().getQ().getBasisVector0().getY(),
@@ -157,9 +156,9 @@ public class PhysicsEntity extends Entity {
                 body.getGlobalPose().getQ().getBasisVector2().getY(),
                 body.getGlobalPose().getQ().getBasisVector2().getZ());
 
-        this.dataTracker.set(rx, new Vector3f(c0.toFloatArray4()));
-        this.dataTracker.set(ry, new Vector3f(c1.toFloatArray4()));
-        this.dataTracker.set(rz, new Vector3f(c2.toFloatArray4()));
+        this.dataTracker.set(rx, c0);
+        this.dataTracker.set(ry, c1);
+        this.dataTracker.set(rz, c2);
 
         this.setBlockPosition(new BlockPos((int) this.getPos().x, (int) this.getPos().y, (int) this.getPos().z));
 

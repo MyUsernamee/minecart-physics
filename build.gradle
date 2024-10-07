@@ -40,17 +40,20 @@ dependencies {
 
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-	implementation group: "org.ode4j", name: "core", version: "0.5.3"
 
 	// java bindings
     implementation("de.fabmax:physx-jni:2.4.1")
-    
+	shadow 'de.fabmax:physx-jni:2.4.1'
+
     // native libraries - you can add the one matching your system or all
     runtimeOnly("de.fabmax:physx-jni:2.4.1:natives-windows")
+	shadow "de.fabmax:physx-jni:2.4.1:natives-windows"
     runtimeOnly("de.fabmax:physx-jni:2.4.1:natives-linux")
+	shadow "de.fabmax:physx-jni:2.4.1:natives-linux"
     runtimeOnly("de.fabmax:physx-jni:2.4.1:natives-macos")
+	shadow "de.fabmax:physx-jni:2.4.1:natives-macos"
     runtimeOnly("de.fabmax:physx-jni:2.4.1:natives-macos-arm64")
-
+	shadow "de.fabmax:physx-jni:2.4.1:natives-macos-arm64"
 }
 
 processResources {
@@ -65,9 +68,6 @@ tasks.withType(JavaCompile).configureEach {
 	it.options.release = 21
 }
 
-tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
-  configurations = [project.configurations.runtimeClasspath]
-}
 
 java {
 	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task

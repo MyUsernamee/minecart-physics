@@ -9,7 +9,6 @@ import net.minecraft.util.math.Box;
 
 import org.jetbrains.annotations.ApiStatus.OverrideOnly;
 import org.joml.*;
-import org.ode4j.math.*;
 
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.RenderLayer;
