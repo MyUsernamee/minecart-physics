@@ -49,6 +49,14 @@ dependencies {
     modImplementation include("de.fabmax:physx-jni:2.4.1:natives-macos")
     modImplementation include("de.fabmax:physx-jni:2.4.1:natives-macos-arm64")
 
+	// Same thing as about but no modImplementation or include
+	implementation "de.fabmax:physx-jni:2.4.1"
+
+	runtimeOnly ("de.fabmax:physx-jni:2.4.1:natives-windows")
+	runtimeOnly ("de.fabmax:physx-jni:2.4.1:natives-linux")
+	runtimeOnly ("de.fabmax:physx-jni:2.4.1:natives-macos")
+	runtimeOnly ("de.fabmax:physx-jni:2.4.1:natives-macos-arm64")
+
 }
 
 processResources {

@@ -128,6 +128,17 @@ public class PhysicsEntity extends Entity {
     }
 
     @Override
+    public void setVelocity(Vec3d v) {
+
+        if (this.body == null)
+            return;
+        PxVec3 px = new PxVec3((float) v.x * 20.0f, (float) v.y * 20.0f, (float) v.z * 20.0f);
+        body.setLinearVelocity(px);
+        px.destroy();
+
+    }
+
+    @Override
     public void tick() {
         // super.tick();
         if (getWorld().isClient)

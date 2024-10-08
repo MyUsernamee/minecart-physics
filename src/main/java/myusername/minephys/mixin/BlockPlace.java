@@ -2,6 +2,7 @@ package myusername.minephys.mixin;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
@@ -12,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import myusername.minephys.Minecartphysics;
 
-@Mixin(World.class)
+@Mixin(ServerWorld.class)
 public class BlockPlace {
 	@Inject(at = @At("HEAD"), method = "onBlockChanged")
 	private void changed(BlockPos pos, BlockState oldBlock, BlockState newBlock, CallbackInfo info) {
