@@ -41,7 +41,7 @@ public class Minecartphysics implements ModInitializer {
 	public static final EntityType<PhysicsEntity> PHYS_ENTITY = Registry.register(
 			Registries.ENTITY_TYPE,
 			Identifier.of(MOD_ID, "test_phys"),
-			EntityType.Builder.create(PhysicsEntity::new, SpawnGroup.MISC).dimensions(1.0f, 1.0f)
+			EntityType.Builder.create(PhysicsEntity::new, SpawnGroup.MISC).dimensions(1.0f, 1.0f).eyeHeight(0.0f)
 					.build("test_phys"));
 
 	public static void ensureLoaded(BlockPos pos, World world) {
@@ -49,7 +49,7 @@ public class Minecartphysics implements ModInitializer {
 		if (!blocks.containsKey(pos) && !world.getBlockState(pos).isAir()) {
 
 			PxRigidStatic b = physics.createRigidStatic(new PxTransform(
-					new PxVec3((float) pos.getX(), (float) pos.getY(), (float) pos.getZ()),
+					new PxVec3((float) pos.getX() + 0.5f, (float) pos.getY() + 0.5f, (float) pos.getZ() + 0.5f),
 					new PxQuat(PxIDENTITYEnum.PxIdentity)));
 
 			PxShape s = physics.createShape(new PxBoxGeometry(0.5f, 0.5f, 0.5f), default_material, true, px_flags);

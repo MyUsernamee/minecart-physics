@@ -1,18 +1,28 @@
 package myusername.minephys;
 
+import org.jetbrains.annotations.ApiStatus.OverrideOnly;
+import org.joml.Matrix3f;
 import org.joml.Vector3f;
+import org.spongepowered.asm.mixin.Overwrite;
+
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.minecraft.client.render.debug.DebugRenderer;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.data.TrackedData;
 import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.vehicle.VehicleEntity;
+import net.minecraft.item.Item;
+import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.Vec3i;
 import net.minecraft.world.World;
 import physx.common.PxQuat;
 import physx.common.PxTransform;
@@ -66,32 +76,46 @@ public class PhysicsEntity extends Entity {
     }
 
     @Override
+    public boolean isCollidable() {
+        return true;
+    }
+
+    // can hit
+    @Override
+    public boolean canHit() {
+        return true;
+    }
+
+    @Override
     public ActionResult interact(PlayerEntity player, Hand hand) {
         if (this.getWorld().isClient) {
             return ActionResult.SUCCESS;
         } else {
 
-            return player.startRiding(this) ? ActionResult.SUCCESS : ActionResult.PASS;
+            return player.startRiding(this) ? ActionResult.CONSUME : ActionResult.PASS;
 
         }
     }
 
     public PhysicsEntity(EntityType<? extends Entity> entityType, World world) {
         super(entityType, world);
-        this.calculateDimensions();
-        this.setBoundingBox(new Box(0.0f, 0.0f, 0.0f, 10.0f, 10.0f, 10.0f));
+        // this.calculateDimensions();
+        // this.setBoundingBox(new Box(0.0f, 0.0f, 0.0f, 10.0f, 10.0f, 10.0f));
         this.intersectionChecked = true;
 
         this.dataTracker.set(rx, new Vector3f());
         this.dataTracker.set(ry, new Vector3f());
         this.dataTracker.set(rz, new Vector3f());
+
         if (world.isClient)
             return;
+
         Vec3d pos = this.getPos();
         PxVec3 pxVec3 = new PxVec3((float) pos.x, (float) pos.y, (float) pos.z);
-        PxQuat pxQuat = new PxQuat(0.0f, 0.0f, 0.0f, 0.0f);
+        PxQuat pxQuat = new PxQuat(0.0f, 0.0f, 1.0f, 0.0f);
         PxTransform pxTransform = new PxTransform(pxVec3, pxQuat);
         body = Minecartphysics.physics.createRigidDynamic(pxTransform);
+        Minecartphysics.phys_world.addActor(body);
 
         PxBoxGeometry pxBoxGeometry = new PxBoxGeometry(0.55f, 0.25f, 0.49f);
         PxShape pxShape = Minecartphysics.physics.createShape(pxBoxGeometry, Minecartphysics.default_material, true,
@@ -99,36 +123,88 @@ public class PhysicsEntity extends Entity {
         PxFilterData pxFilterData = new PxFilterData(1, 1, 0, 0);
         pxShape.setSimulationFilterData(pxFilterData);
         body.attachShape(pxShape);
-        Minecartphysics.phys_world.addActor(body);
         body.setSleepThreshold(0.0f);
         pxVec3.setX(0.0f);
         pxVec3.setY(0.0f);
         pxVec3.setZ(0.0f);
         body.setLinearVelocity(pxVec3);
 
-        pxVec3.destroy();
-        pxQuat.destroy();
-        pxBoxGeometry.destroy();
-        pxFilterData.destroy();
+        Minecartphysics.LOGGER.info("Creating Minecart: {}", body.getGlobalPose().getP().getX());
 
     }
 
+    @Override
     public void setPosition(double x, double y, double z) {
         super.setPosition(x, y, z);
         if (body == null)
             return;
         // Create temppxVec3 and temp PxQuat
-        PxVec3 pxVec3 = new PxVec3((float) x, (float) y, (float) z);
-        PxQuat pxQuat = new PxQuat(0.0f, 0.0f, 1.0f, 0.0f);
-        PxTransform pxTransform = new PxTransform(pxVec3, pxQuat);
-        body.setGlobalPose(pxTransform);
+        setPxPos(new Vec3d(x, y, z));
+    }
+
+    private Vec3d getPxPos() {
+
+        PxVec3 px_p = body.getGlobalPose().getP();
+        Vector3f p = new Vector3f(px_p.getX(), px_p.getY(), px_p.getZ());
+        PxQuat q = body.getGlobalPose().getQ();
+        Matrix3f r = new Matrix3f();
+
+        r.setRow(0,
+                new Vector3f(q.getBasisVector0().getX(), q.getBasisVector0().getY(), q.getBasisVector0().getZ()));
+        r.setRow(1,
+                new Vector3f(q.getBasisVector1().getX(), q.getBasisVector1().getY(), q.getBasisVector1().getZ()));
+        r.setRow(2,
+                new Vector3f(q.getBasisVector2().getX(), q.getBasisVector2().getY(), q.getBasisVector2().getZ()));
+
+        // r.invert();
+
+        // p.add(r.transform(new Vector3f(-0.00f, 0.0f, 0.5f)));
+        return new Vec3d(p.x, p.y, p.z);
+
+    }
+
+    private void setPxPos(Vec3d pos) {
+        PxQuat q = body.getGlobalPose().getQ();
+        Matrix3f r = new Matrix3f();
+
+        r.setColumn(0,
+                new Vector3f(q.getBasisVector0().getX(), q.getBasisVector0().getY(), q.getBasisVector0().getZ()));
+        r.setColumn(1,
+                new Vector3f(q.getBasisVector1().getX(), q.getBasisVector1().getY(), q.getBasisVector1().getZ()));
+        r.setColumn(2,
+                new Vector3f(q.getBasisVector2().getX(), q.getBasisVector2().getY(), q.getBasisVector2().getZ()));
+        // r.invert();
+
+        if (Float.isNaN(q.getX()))
+            q = new PxQuat(0.0f, 0.0f, 1.0f, 0.0f);
+
+        Vector3f p = new Vector3f((float) pos.x, (float) pos.y, (float) pos.z);
+
+        PxVec3 px_p = new PxVec3(p.x, p.y, p.z);
+        PxTransform pxTransform = new PxTransform(px_p, q);
+        body.setGlobalPose(pxTransform, true);
+
+        // px_p.destroy();
         pxTransform.destroy();
-        pxVec3.destroy();
-        pxQuat.destroy();
+    }
+
+    @Override
+    public Vec3d getVelocity() {
+
+        if (body == null)
+            return new Vec3d(0.0, 0.0, 0.0);
+
+        // return super.getVelocity();
+
+        return new Vec3d(body.getLinearVelocity().getX() / 20.0,
+                body.getLinearVelocity().getY() / 20.0,
+                body.getLinearVelocity().getZ() / 20.0);
+
     }
 
     @Override
     public void setVelocity(Vec3d v) {
+        super.setVelocity(v);
 
         if (this.body == null)
             return;
@@ -144,12 +220,14 @@ public class PhysicsEntity extends Entity {
         if (getWorld().isClient)
             return;
 
-        if (Double.isNaN(getPos().getX())) {
-            setPosition(new Vec3d(0.0, 0.0, 0.0));
+        if (Double.isNaN(getPos().getX()) || Float.isNaN(body.getGlobalPose().getP().getX())) {
+            setPosition(0.0, 0.0, 0.0);
         }
 
-        super.setPos(body.getGlobalPose().getP().getX(), body.getGlobalPose().getP().getY(),
-                body.getGlobalPose().getP().getZ());
+        this.setPos(getPxPos().x, getPxPos().y, getPxPos().z);
+        this.setBoundingBox(this.calculateBoundingBox());
+        // this.calculateBoundingBox();
+        // this.calculateDimensions();
 
         Vector3f c0 = new Vector3f();
         Vector3f c1 = new Vector3f();
@@ -173,6 +251,7 @@ public class PhysicsEntity extends Entity {
 
         this.setBlockPosition(new BlockPos((int) this.getPos().x, (int) this.getPos().y, (int) this.getPos().z));
 
+        this.firstUpdate = false;
         // this.setVelocity(this.getVelocity().multiply(0.0f));
     }
 
