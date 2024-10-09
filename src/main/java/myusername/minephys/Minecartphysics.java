@@ -46,7 +46,7 @@ public class Minecartphysics implements ModInitializer {
 
 	public static void ensureLoaded(BlockPos pos, World world) {
 
-		if (!blocks.containsKey(pos) && !world.getBlockState(pos).isAir()) {
+		if (pos.getY() > world.getBottomY() && !blocks.containsKey(pos) && !world.getBlockState(pos).isAir()) {
 
 			PxRigidStatic b = physics.createRigidStatic(new PxTransform(
 					new PxVec3((float) pos.getX() + 0.5f, (float) pos.getY() + 0.5f, (float) pos.getZ() + 0.5f),
