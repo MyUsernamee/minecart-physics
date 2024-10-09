@@ -211,6 +211,11 @@ public class PhysicsEntity extends Entity {
             return;
         setAngles(0, 0);
 
+        if (getPxPos().y < getWorld().getBottomY()) {
+            this.remove(RemovalReason.DISCARDED);
+            return;
+        }
+
         if (Double.isNaN(getPos().getX()) || Float.isNaN(body.getGlobalPose().getP().getX())) {
             setPosition(0.0, 0.0, 0.0);
         }
