@@ -1,28 +1,19 @@
 package myusername.minephys;
 
-import org.jetbrains.annotations.ApiStatus.OverrideOnly;
 import org.joml.Matrix3f;
+import org.joml.Quaternionf;
 import org.joml.Vector3f;
-import org.spongepowered.asm.mixin.Overwrite;
-
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
-import net.minecraft.client.render.debug.DebugRenderer;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.data.TrackedData;
 import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.vehicle.VehicleEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.Vec3i;
 import net.minecraft.world.World;
 import physx.common.PxQuat;
 import physx.common.PxTransform;
@@ -42,6 +33,8 @@ public class PhysicsEntity extends Entity {
             TrackedDataHandlerRegistry.VECTOR3F);
     public static final TrackedData<Vector3f> rz = DataTracker.registerData(PhysicsEntity.class,
             TrackedDataHandlerRegistry.VECTOR3F);
+    public static final TrackedData<Quaternionf> orientation = DataTracker.registerData(PhysicsEntity.class,
+            TrackedDataHandlerRegistry.QUATERNIONF);
 
     public BlockPos getBlockPosition() {
 
@@ -68,6 +61,7 @@ public class PhysicsEntity extends Entity {
         builder.add(rx, new Vector3f());
         builder.add(ry, new Vector3f());
         builder.add(rz, new Vector3f());
+        builder.add(orientation, new Quaternionf());
     }
 
     @Override
@@ -102,10 +96,6 @@ public class PhysicsEntity extends Entity {
         // this.calculateDimensions();
         // this.setBoundingBox(new Box(0.0f, 0.0f, 0.0f, 10.0f, 10.0f, 10.0f));
         this.intersectionChecked = true;
-
-        this.dataTracker.set(rx, new Vector3f());
-        this.dataTracker.set(ry, new Vector3f());
-        this.dataTracker.set(rz, new Vector3f());
 
         if (world.isClient)
             return;
@@ -219,6 +209,7 @@ public class PhysicsEntity extends Entity {
         // super.tick();
         if (getWorld().isClient)
             return;
+        setAngles(0, 0);
 
         if (Double.isNaN(getPos().getX()) || Float.isNaN(body.getGlobalPose().getP().getX())) {
             setPosition(0.0, 0.0, 0.0);
@@ -244,6 +235,11 @@ public class PhysicsEntity extends Entity {
         c2.set(body.getGlobalPose().getQ().getBasisVector2().getX(),
                 body.getGlobalPose().getQ().getBasisVector2().getY(),
                 body.getGlobalPose().getQ().getBasisVector2().getZ());
+
+        PxQuat px_q = body.getGlobalPose().getQ();
+
+        Quaternionf q = new Quaternionf(px_q.getX(), px_q.getY(), px_q.getZ(), px_q.getW());
+        this.dataTracker.set(orientation, q);
 
         this.dataTracker.set(rx, c0);
         this.dataTracker.set(ry, c1);

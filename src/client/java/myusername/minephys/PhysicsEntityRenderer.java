@@ -59,7 +59,6 @@ public class PhysicsEntityRenderer extends EntityRenderer<PhysicsEntity> {
         Quaternionf q = new Quaternionf();
         q.setFromUnnormalized(a);
         matrices.multiply(q);
-        // matrices.translate(0.0f, -0.5f, 0.0f);
         model.render(matrices, vertexConsumers.getBuffer(model.getLayer(getTexture(entity))), light, getOverlay(),
                 654311423);
 

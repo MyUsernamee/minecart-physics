@@ -3,7 +3,7 @@
 	"package": "myusername.minephys.mixin.client",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
-		"ExampleClientMixin"
+		"CameraMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
