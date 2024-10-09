@@ -21,7 +21,7 @@ public class BlockPlace {
 		if (newBlock.isAir()) {
 			Minecartphysics.unloadBlock(pos);
 		} else {
-			Minecartphysics.ensureLoaded(pos, (World) (Object) this);
+			Minecartphysics.ensureLoaded(pos, (World) (Object) this, newBlock);
 		}
 	}
 }

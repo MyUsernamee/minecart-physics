@@ -2,6 +2,7 @@ package myusername.minephys;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.registry.Registries;
@@ -50,6 +51,24 @@ public class Minecartphysics implements ModInitializer {
 			return;
 
 		if (pos.getY() > world.getBottomY() && !blocks.containsKey(pos) && !world.getBlockState(pos).isAir()) {
+
+			PxRigidStatic b = physics.createRigidStatic(new PxTransform(
+					new PxVec3((float) pos.getX() + 0.5f, (float) pos.getY() + 0.5f, (float) pos.getZ() + 0.5f),
+					new PxQuat(PxIDENTITYEnum.PxIdentity)));
+
+			PxShape s = physics.createShape(new PxBoxGeometry(0.5f, 0.5f, 0.5f), default_material, true, px_flags);
+			s.setSimulationFilterData(new PxFilterData(1, 1, 0, 0));
+			b.attachShape(s);
+			phys_world.addActor(b);
+
+			blocks.put(pos, b);
+		}
+
+	}
+
+	public static void ensureLoaded(BlockPos pos, World world, BlockState state) {
+
+		if (pos.getY() > world.getBottomY() && !blocks.containsKey(pos) && state.isAir()) {
 
 			PxRigidStatic b = physics.createRigidStatic(new PxTransform(
 					new PxVec3((float) pos.getX() + 0.5f, (float) pos.getY() + 0.5f, (float) pos.getZ() + 0.5f),
