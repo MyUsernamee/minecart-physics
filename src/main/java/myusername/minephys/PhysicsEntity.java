@@ -165,8 +165,6 @@ public class PhysicsEntity extends MinecartEntity {
         pxVec3.setZ(0.0f);
         body.setLinearVelocity(pxVec3);
 
-        Minecartphysics.LOGGER.info("Creating Minecart: {}", body.getGlobalPose().getP().getX());
-
     }
 
     @Override
@@ -357,8 +355,6 @@ public class PhysicsEntity extends MinecartEntity {
             var rb_state = getWorld().getBlockState(r_pos);
 
             // Print new_P
-            Minecartphysics.LOGGER.info("New_P: {}, {}, {}.", new_p.x, new_p.y, new_p.z);
-            Minecartphysics.LOGGER.info("Pos: {} {} {}", getPos().x, getPos().y, getPos().z);
 
             if (r_state == null) {
                 return;
