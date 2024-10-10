@@ -48,16 +48,7 @@ public class PhysicsEntityRenderer extends EntityRenderer<PhysicsEntity> {
         super.render(entity, yaw, tickDelta, matrices, vertexConsumers, light);
         matrices.push();
 
-        // Copy the transform matrix
-        Matrix4d a = new Matrix4d();
-        a.setColumn(0, new Vector4d(entity.getRx().x, entity.getRx().y, entity.getRx().z, 0.0f));
-        a.setColumn(1, new Vector4d(entity.getRy().x, entity.getRy().y, entity.getRy().z, 0.0f));
-        a.setColumn(2, new Vector4d(entity.getRz().x, entity.getRz().y, entity.getRz().z, 0.0f));
-        // Strip the position
-        a.setColumn(3, new Vector4d(0f, 0f, 0f, 1.0f));
-
-        Quaternionf q = new Quaternionf();
-        q.setFromUnnormalized(a);
+        Quaternionf q = entity.getDataTracker().get(PhysicsEntity.orientation);
         matrices.multiply(q);
         model.render(matrices, vertexConsumers.getBuffer(model.getLayer(getTexture(entity))), light, getOverlay(),
                 654311423);

@@ -7,6 +7,7 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
+import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
@@ -50,13 +51,15 @@ public class Minecartphysics implements ModInitializer {
 		if (!world.isChunkLoaded(pos.getX() / 16, pos.getZ() / 16))
 			return;
 
-		if (pos.getY() > world.getBottomY() && !blocks.containsKey(pos) && !world.getBlockState(pos).isAir()) {
+		if (pos.getY() > world.getBottomY() && !blocks.containsKey(pos) && !world.getBlockState(pos).isAir()
+				&& !world.getBlockState(pos).isIn(BlockTags.RAILS)) {
 
 			PxRigidStatic b = physics.createRigidStatic(new PxTransform(
 					new PxVec3((float) pos.getX() + 0.5f, (float) pos.getY() + 0.5f, (float) pos.getZ() + 0.5f),
 					new PxQuat(PxIDENTITYEnum.PxIdentity)));
 
 			PxShape s = physics.createShape(new PxBoxGeometry(0.5f, 0.5f, 0.5f), default_material, true, px_flags);
+			// s.setRestOffset(0.1f);
 			s.setSimulationFilterData(new PxFilterData(1, 1, 0, 0));
 			b.attachShape(s);
 			phys_world.addActor(b);
@@ -68,7 +71,8 @@ public class Minecartphysics implements ModInitializer {
 
 	public static void ensureLoaded(BlockPos pos, World world, BlockState state) {
 
-		if (pos.getY() > world.getBottomY() && !blocks.containsKey(pos) && state.isAir()) {
+		if (pos.getY() > world.getBottomY() && !blocks.containsKey(pos) && !state.isAir()
+				&& !state.isIn(BlockTags.RAILS)) {
 
 			PxRigidStatic b = physics.createRigidStatic(new PxTransform(
 					new PxVec3((float) pos.getX() + 0.5f, (float) pos.getY() + 0.5f, (float) pos.getZ() + 0.5f),
@@ -116,7 +120,7 @@ public class Minecartphysics implements ModInitializer {
 
 		PxTolerancesScale tolerancesScale = new PxTolerancesScale();
 		physics = PxTopLevelFunctions.CreatePhysics(version, foundation, tolerancesScale);
-		default_material = physics.createMaterial(0.5f, 0.5f, 0.5f);
+		default_material = physics.createMaterial(0.5f, 0.5f, 0.0f);
 
 		PxSceneDesc desc = new PxSceneDesc(tolerancesScale);
 		desc.setGravity(new PxVec3(0.0f, -9.8f / 4.0f, 0.0f)); // Shhhh :)
