@@ -6,6 +6,7 @@ import net.minecraft.client.render.entity.model.MinecartEntityModel;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
 
 import org.jetbrains.annotations.ApiStatus.OverrideOnly;
 import org.joml.*;
@@ -48,13 +49,27 @@ public class PhysicsEntityRenderer extends EntityRenderer<PhysicsEntity> {
         super.render(entity, yaw, tickDelta, matrices, vertexConsumers, light);
         matrices.push();
 
-        Quaternionf q = entity.getDataTracker().get(PhysicsEntity.orientation);
+        Quaternionf q = entity.client_orientation;
         matrices.multiply(q);
         model.render(matrices, vertexConsumers.getBuffer(model.getLayer(getTexture(entity))), light, getOverlay(),
                 654311423);
 
-        // DebugRenderer.drawBox(matrices, vertexConsumers, new Box(-0.5, -.5, -0.5,
-        // 0.5, 0.5, 0.5), 1, 1, 1, 1);
+        // var cart_forward = new Vec3d(q.positiveX(new Vector3f()));
+        // var cart_front = entity.getPos().add(cart_forward);
+        // var cart_back = entity.getPos().subtract(cart_forward);
+
+        // matrices.push();
+        // matrices.translate(0.5, 0.0, 0.0);
+        // DebugRenderer.drawBox(matrices, vertexConsumers, new Box(-0.1, -0.1, -0.1,
+        // 0.1, 0.1, 0.1), 1, 1, 1, 1);
+        // matrices.pop();
+
+        // matrices.push();
+        // matrices.translate(-0.5, 0.0, 0.0);
+        // DebugRenderer.drawBox(matrices, vertexConsumers, new Box(-0.1, -0.1, -0.1,
+        // 0.1, 0.1, 0.1), 1, 1, 1, 1);
+        // matrices.pop();
+
         matrices.pop();
 
     }

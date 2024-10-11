@@ -2,14 +2,15 @@ package myusername.minephys;
 
 import java.util.Map;
 
-import org.joml.*;
 import org.joml.Math;
+import org.joml.Matrix3f;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import com.google.common.collect.Maps;
 import com.mojang.datafixers.util.Pair;
 
 import net.minecraft.block.AbstractRailBlock;
-import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.enums.RailShape;
 import net.minecraft.entity.Entity;
@@ -17,10 +18,8 @@ import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.data.TrackedData;
-import net.minecraft.entity.data.TrackedDataHandler;
 import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.vehicle.AbstractMinecartEntity;
 import net.minecraft.entity.vehicle.MinecartEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.tag.BlockTags;
@@ -47,8 +46,12 @@ public class PhysicsEntity extends MinecartEntity {
     private BlockPos b_pos;
     private boolean on_rail;
 
+    public Quaternionf client_orientation;
+
     public static final TrackedData<Quaternionf> orientation = DataTracker.registerData(PhysicsEntity.class,
             TrackedDataHandlerRegistry.QUATERNIONF);
+    public static final TrackedData<Vector3f> last_ang_vel = DataTracker.registerData(PhysicsEntity.class,
+            TrackedDataHandlerRegistry.VECTOR3F);
     public static final TrackedData<Vector3f> last_vel = DataTracker.registerData(PhysicsEntity.class,
             TrackedDataHandlerRegistry.VECTOR3F);
     private static final Map<RailShape, Pair<Vec3i, Vec3i>> ADJACENT_RAIL_POSITIONS_BY_SHAPE = Util
@@ -102,6 +105,7 @@ public class PhysicsEntity extends MinecartEntity {
         super.initDataTracker(builder);
         builder.add(orientation, new Quaternionf());
         builder.add(last_vel, new Vector3f(1.0f, 0.0f, 0.0f));
+        builder.add(last_ang_vel, new Vector3f());
     }
 
     @Override
@@ -143,9 +147,12 @@ public class PhysicsEntity extends MinecartEntity {
         // this.calculateDimensions();
         // this.setBoundingBox(new Box(0.0f, 0.0f, 0.0f, 10.0f, 10.0f, 10.0f));
         this.intersectionChecked = true;
+        this.client_orientation = new Quaternionf(0.0, 0.0, 1.0, 0.0);
 
         if (world.isClient)
             return;
+
+        Minecartphysics.carts.add(this);
 
         Vec3d pos = this.getPos();
         PxVec3 pxVec3 = new PxVec3((float) pos.x, (float) pos.y, (float) pos.z);
@@ -227,7 +234,7 @@ public class PhysicsEntity extends MinecartEntity {
     @Override
     public Vec3d getVelocity() {
 
-        if (body == null)
+        if (body == null || this.isRemoved())
             return new Vec3d(0.0, 0.0, 0.0);
 
         // return super.getVelocity();
@@ -243,6 +250,13 @@ public class PhysicsEntity extends MinecartEntity {
         PxQuat new_q = new PxQuat(q.x, q.y, q.z, q.w);
         body.setGlobalPose(new PxTransform(body.getGlobalPose().getP(), new_q), true);
         body.setAngularVelocity(new PxVec3(0.0f, 0.0f, 0.0f));
+
+    }
+
+    public Quaternionf getRotation() {
+
+        var px_quat = body.getGlobalPose().getQ();
+        return new Quaternionf(px_quat.getX(), px_quat.getY(), px_quat.getZ(), px_quat.getZ());
 
     }
 
@@ -277,25 +291,7 @@ public class PhysicsEntity extends MinecartEntity {
 
     }
 
-    @Override
-    public void tick() {
-        // super.tick();
-        this.firstUpdate = false;
-        if (getWorld().isClient) {
-            // this.refreshPosition();
-            // this.setRotation(this.getYaw(), this.getPitch());
-
-            this.setPosition(
-                    this.getPos().add(new Vec3d(this.getDataTracker().get(PhysicsEntity.last_vel).mul(1.0f / 20.0f))));
-            // Print last vel
-
-            // Minecartphysics.LOGGER.info("Last Vel: {}, {}, {}.",
-            // this.dataTracker.get(PhysicsEntity.last_vel).x,
-            // this.dataTracker.get(PhysicsEntity.last_vel).y,
-            // this.dataTracker.get(PhysicsEntity.last_vel).z);
-
-            return;
-        }
+    public void doPhysics(float dt) {
 
         setAngles(0, 0);
 
@@ -335,18 +331,30 @@ public class PhysicsEntity extends MinecartEntity {
         this.dataTracker.set(orientation, q);
 
         this.setBlockPosition(new BlockPos((int) this.getPos().x, (int) this.getPos().y, (int) this.getPos().z));
+        q = q.normalize();
 
-        var new_p = this.snapPositionToRail(this.getPos().x, this.getPos().y, this.getPos().z);
+        var cart_forward = q.positiveX(new Vector3f());
+        var cart_up = q.positiveY(new Vector3f());
+        var cart_pos = new Vector3f((float) this.getPos().x, (float) this.getPos().y, (float) this.getPos().z);
+        var cart_front = cart_pos.add(cart_forward.mul(0.5f, new Vector3f()), new Vector3f());
+        var cart_back = cart_pos.add(cart_forward.mul(-0.5f, new Vector3f()), new Vector3f());
+
+        // cart_forward.sub(cart_up.mul(0.5f));
+        // cart_back.sub(cart_up.mul(0.5f));
+
+        var new_p_1 = this.snapPositionToRail(cart_front.x, cart_front.y, cart_front.z);
+        var new_p_2 = this.snapPositionToRail(cart_back.x, cart_back.y, cart_back.z);
+
         var r_pos = getNearestRail(this.getPos());
 
-        if (new_p != null) {
+        if (new_p_1 != null && new_p_2 != null) {
 
             if (!on_rail) {
                 on_rail = true;
                 body.detachShape(pxShape);
             }
 
-            setPosition(new_p.add(0.0, 0.5, 0.0));
+            setPosition(new_p_1.add(new_p_2).multiply(0.5).add(0.0, 0.5f, 0.0));
 
             if (r_pos == null)
                 return; // How
@@ -363,9 +371,8 @@ public class PhysicsEntity extends MinecartEntity {
             Pair<Vec3i, Vec3i> pair = getAdjacentRailPositionsByShape(r_state);
             BlockPos bp = getBlockPosition();
             if (pair.getFirst() != null && pair.getSecond() != null) {
-                Vector3f direction = new Vector3f(pair.getFirst().getX() - pair.getSecond().getX(),
-                        pair.getFirst().getY() - pair.getSecond().getY(),
-                        pair.getFirst().getZ() - pair.getSecond().getZ());
+                Vector3f direction = new Vector3f((float) (new_p_1.x - new_p_2.x), (float) (new_p_1.y - new_p_2.y),
+                        (float) (new_p_1.z - new_p_2.z));
                 direction = direction.mul(-1.0f).normalize();
                 Minecartphysics.LOGGER.info("First: {}, {}, {}.", pair.getFirst().getX(), pair.getFirst().getY(),
                         pair.getFirst().getZ());
@@ -381,23 +388,30 @@ public class PhysicsEntity extends MinecartEntity {
 
                 rotationQuat.rotateAxis((float) Math.PI / 2.0f, new Vector3f(0.0f, 1.0f, 0.0f));
 
+                Vector3f old_direction = getRotation().positiveX(new Vector3f());
+                Vector3f new_direction = rotationQuat.positiveX(new Vector3f());
+
+                Vector3f angular_velocity = old_direction.cross(new_direction, new Vector3f());
+                angular_velocity.mul(1.0f / dt);
+
+                setAngularVelocity(angular_velocity);
+
                 setRotation(rotationQuat);
                 // body.setAngularVelocity(new PxVec3(0.0f, 0.0f, 0.0f));
 
                 double sign_direction = Math.signum(getVelocity().dotProduct(new Vec3d(direction)));
                 sign_direction = sign_direction >= 0.0 ? 1.0 : -1.0;
-                Minecartphysics.LOGGER.info("Direction: {}, {}, {}, {}.", direction.x, direction.y, direction.z,
-                        sign_direction);
 
                 Vec3d flat_vel = getVelocity().add(new Vec3d(up.mul((float) -getVelocity().dotProduct(new Vec3d(up)))));
 
                 setVelocity(new Vec3d(flat_vel.x, flat_vel.y, flat_vel.z));
-                setVelocity(new Vec3d(direction.mul((float) sign_direction * (float) getVelocity().length())));
+                float vel_before = (float) getVelocity().length();
+                setVelocity(new Vec3d(direction.mul((float) sign_direction * vel_before)));
             }
 
             if (rb_state.isOf(Blocks.POWERED_RAIL)
                     && getVelocity().length() > 0.0f) {
-                setVelocity(this.getVelocity().normalize().multiply(Math.min(getVelocity().length() * 1.5F, 8.0)));
+                setVelocity(this.getVelocity().normalize().multiply(Math.min(getVelocity().length() * 1.01F, 16.0)));
             }
 
         } else {
@@ -412,16 +426,45 @@ public class PhysicsEntity extends MinecartEntity {
         this.dataTracker.set(PhysicsEntity.last_vel,
                 new Vector3f((float) this.getVelocity().x, (float) this.getVelocity().y, (float) this.getVelocity().z),
                 true);
+        this.dataTracker.set(PhysicsEntity.last_ang_vel, new Vector3f(body.getAngularVelocity().getX(),
+                body.getAngularVelocity().getY(), body.getAngularVelocity().getZ()));
 
-        // Print the data tracker last vel
-        // Minecartphysics.LOGGER.info("DataTracker Last Vel: {}, {}, {}.",
-        // this.dataTracker.get(last_vel).x,
-        // this.dataTracker.get(last_vel).y, this.dataTracker.get(last_vel).z);
+    }
 
-        // updateTrackedPositionAndAngles(this.getPos().x, this.getPos().y,
-        // this.getPos().z, 0.0f, 0.0f, -5);
+    private void setAngularVelocity(Vector3f angular_velocity) {
 
-        // this.setVelocity(this.getVelocity().multiply(0.0f));
+        var new_vel = new PxVec3(angular_velocity.x, angular_velocity.y, angular_velocity.z);
+        body.setAngularVelocity(new_vel);
+    }
+
+    @Override
+    public void tick() {
+        // super.tick();
+        this.firstUpdate = false;
+        if (getWorld().isClient) {
+            // this.refreshPosition();
+            // this.setRotation(this.getYaw(), this.getPitch());
+
+            this.setPosition(
+                    this.getPos().add(new Vec3d(this.getDataTracker().get(PhysicsEntity.last_vel).mul(1.0f / 20.0f))));
+            // Print last vel
+            var ang_vel = this.getDataTracker().get(PhysicsEntity.last_ang_vel);
+            if (ang_vel.length() > 0.0) {
+                client_orientation.rotateAxis(
+                        ang_vel.length() / 20.0f,
+                        this.getDataTracker().get(PhysicsEntity.last_ang_vel).normalize());
+            }
+
+            // Minecartphysics.LOGGER.info("Orientation: {}, {}, {}, {}.",
+            // this.getDataTracker().get(PhysicsEntity.orientation).x,
+            // this.getDataTracker().get(PhysicsEntity.orientation).y,
+            // this.getDataTracker().get(PhysicsEntity.orientation).z,
+            // this.getDataTracker().get(PhysicsEntity.orientation).w);
+
+            return;
+        }
+
+        return;
     }
 
     private RailShape getRailShape(Vec3d new_p) {
@@ -447,7 +490,9 @@ public class PhysicsEntity extends MinecartEntity {
     public void remove(Entity.RemovalReason reason) {
 
         super.remove(reason);
+        Minecartphysics.carts.remove(this);
         body.release();
+        body = null;
 
     }
 
@@ -471,6 +516,7 @@ public class PhysicsEntity extends MinecartEntity {
             int intepolationSteps) {
         // TODO Auto-generated method stub
         this.setPosition(x, y, z);
+        client_orientation.set(this.getDataTracker().get(PhysicsEntity.orientation));
     }
 
     @Override

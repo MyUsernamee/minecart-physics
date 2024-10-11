@@ -18,6 +18,9 @@ public class BlockPlace {
 	@Inject(at = @At("HEAD"), method = "onBlockChanged")
 	private void changed(BlockPos pos, BlockState oldBlock, BlockState newBlock, CallbackInfo info) {
 
+		while (Minecartphysics.locked) {
+		}
+
 		if (newBlock.isAir()) {
 			Minecartphysics.unloadBlock(pos);
 		} else {

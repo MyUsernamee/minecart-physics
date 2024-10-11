@@ -26,6 +26,7 @@ public abstract class CameraMixin {
     @Shadow
     @Final
     Quaternionf rotation;
+    private static Quaternionf old_orientation = new Quaternionf(0.0, 0.0, 1.0, 0.0);
 
     @Inject(method = "update(Lnet/minecraft/world/BlockView;Lnet/minecraft/entity/Entity;ZZF)V", at = @At(value = "INVOKE", shift = At.Shift.AFTER, ordinal = 0, target = "Lnet/minecraft/client/render/Camera;setPos(DDD)V"))
     private void update(BlockView area, Entity self, boolean thirdPerson, boolean inverseView, float tickDelta,
@@ -35,12 +36,13 @@ public abstract class CameraMixin {
         if (vehicle instanceof PhysicsEntity && self.getWorld().isClient) {
             PhysicsEntity _vehicle = (PhysicsEntity) vehicle;
             // We are riding a physics cart :)
-            Quaternionf q = _vehicle.getDataTracker().get(_vehicle.orientation);
             RotationAxis.POSITIVE_Y.rotationDegrees(180.0f + vehicle.getYaw(tickDelta)).mul(rotation, rotation);
             RotationAxis.POSITIVE_X.rotationDegrees(180.0f).mul(rotation, rotation);
 
-            _vehicle.getDataTracker().get(_vehicle.orientation).mul(rotation, rotation);
+            old_orientation.slerp(_vehicle.getDataTracker().get(_vehicle.orientation), tickDelta * 0.5f);
+            old_orientation.mul(rotation, rotation);
 
+            Quaternionf q = _vehicle.getDataTracker().get(_vehicle.orientation);
             q.invert();
 
             this.setPos(_vehicle.getPos()

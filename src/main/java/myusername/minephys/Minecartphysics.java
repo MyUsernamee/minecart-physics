@@ -18,7 +18,9 @@ import physx.geometry.PxBoxGeometry;
 import physx.physics.*;
 
 import java.util.Map;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,10 +37,14 @@ public class Minecartphysics implements ModInitializer {
 
 	public static PxPhysics physics;
 
+	public static boolean locked = true;
+
 	public static PxScene phys_world;
 	public static PxMaterial default_material;
 	public static final PxShapeFlags px_flags = new PxShapeFlags(
 			(byte) (PxShapeFlagEnum.eSCENE_QUERY_SHAPE.value | PxShapeFlagEnum.eSIMULATION_SHAPE.value));
+
+	public static List<PhysicsEntity> carts;
 
 	public static final EntityType<PhysicsEntity> PHYS_ENTITY = Registry.register(
 			Registries.ENTITY_TYPE,
@@ -112,6 +118,8 @@ public class Minecartphysics implements ModInitializer {
 		// However, some things (like resources) may still be uninitialized.
 		// Proceed with mild caution.
 
+		carts = new ArrayList<>();
+
 		blocks = new HashMap<>();
 		int version = PxTopLevelFunctions.getPHYSICS_VERSION();
 
@@ -123,7 +131,7 @@ public class Minecartphysics implements ModInitializer {
 		default_material = physics.createMaterial(0.5f, 0.5f, 0.0f);
 
 		PxSceneDesc desc = new PxSceneDesc(tolerancesScale);
-		desc.setGravity(new PxVec3(0.0f, -9.8f / 4.0f, 0.0f)); // Shhhh :)
+		desc.setGravity(new PxVec3(0.0f, -9.8f / 8.0f, 0.0f)); // Shhhh :)
 		desc.setFilterShader(PxTopLevelFunctions.DefaultFilterShader());
 		desc.setCpuDispatcher(PxTopLevelFunctions.DefaultCpuDispatcherCreate(4));
 
@@ -131,8 +139,18 @@ public class Minecartphysics implements ModInitializer {
 		ServerTickEvents.START_WORLD_TICK.register((world) -> {
 			if (world.isClient())
 				return;
-			phys_world.simulate(1.0f / 20.0f);
-			phys_world.fetchResults(true);
+			for (int i = 0; i < 8; i++) {
+				locked = true;
+				phys_world.simulate(1.0f / 20.0f / 8.0f);
+				phys_world.fetchResults(true);
+				locked = false;
+
+				for (var cart : carts) {
+
+					cart.doPhysics(1.0f / 20.0f / 8.0f);
+
+				}
+			}
 		});
 
 		LOGGER.info("Hello Fabric world!");
