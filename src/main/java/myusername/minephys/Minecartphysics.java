@@ -2,16 +2,20 @@ package myusername.minephys;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
 import net.minecraft.block.BlockState;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.tag.BlockTags;
+import net.minecraft.server.world.BlockEvent;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
-
+import net.minecraft.world.WorldAccess;
+import net.minecraft.world.WorldEvents;
 import physx.PxTopLevelFunctions;
 import physx.common.*;
 import physx.geometry.PxBoxGeometry;
@@ -25,6 +29,8 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Optional;
+
 public class Minecartphysics implements ModInitializer {
 	public static final String MOD_ID = "minecart-physics";
 
@@ -33,11 +39,11 @@ public class Minecartphysics implements ModInitializer {
 	// That way, it's clear which mod wrote info, warnings, and errors.
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-	public static Map<BlockPos, PxRigidStatic> blocks;
+	public static Map<BlockPos, Optional<PxRigidStatic>> blocks;
 
 	public static PxPhysics physics;
 
-	public static boolean locked = true;
+	public static boolean locked = false;
 
 	public static PxScene phys_world;
 	public static PxMaterial default_material;
@@ -57,41 +63,44 @@ public class Minecartphysics implements ModInitializer {
 		if (!world.isChunkLoaded(pos.getX() / 16, pos.getZ() / 16))
 			return;
 
-		if (pos.getY() > world.getBottomY() && !blocks.containsKey(pos) && !world.getBlockState(pos).isAir()
-				&& !world.getBlockState(pos).isIn(BlockTags.RAILS)) {
+		ensureLoaded(pos, world, world.getBlockState(pos));
+	}
 
-			PxRigidStatic b = physics.createRigidStatic(new PxTransform(
-					new PxVec3((float) pos.getX() + 0.5f, (float) pos.getY() + 0.5f, (float) pos.getZ() + 0.5f),
-					new PxQuat(PxIDENTITYEnum.PxIdentity)));
+	public static boolean isSolid(BlockState state) {
 
-			PxShape s = physics.createShape(new PxBoxGeometry(0.5f, 0.5f, 0.5f), default_material, true, px_flags);
-			// s.setRestOffset(0.1f);
-			s.setSimulationFilterData(new PxFilterData(1, 1, 0, 0));
-			b.attachShape(s);
-			phys_world.addActor(b);
-
-			blocks.put(pos, b);
-		}
+		return !state.isAir() && !state.isIn(BlockTags.RAILS);
 
 	}
 
 	public static void ensureLoaded(BlockPos pos, World world, BlockState state) {
 
-		if (pos.getY() > world.getBottomY() && !blocks.containsKey(pos) && !state.isAir()
-				&& !state.isIn(BlockTags.RAILS)) {
+		if (!world.isChunkLoaded(pos.getX() / 16, pos.getZ() / 16))
+			return;
 
-			PxRigidStatic b = physics.createRigidStatic(new PxTransform(
-					new PxVec3((float) pos.getX() + 0.5f, (float) pos.getY() + 0.5f, (float) pos.getZ() + 0.5f),
-					new PxQuat(PxIDENTITYEnum.PxIdentity)));
+		if (pos.getY() > world.getBottomY()) {
 
-			PxShape s = physics.createShape(new PxBoxGeometry(0.5f, 0.5f, 0.5f), default_material, true, px_flags);
-			s.setSimulationFilterData(new PxFilterData(1, 1, 0, 0));
-			b.attachShape(s);
-			phys_world.addActor(b);
+			if (blocks.containsKey(pos) && blocks.get(pos).isPresent()) {
+				blocks.get(pos).get().release();
+			}
 
-			blocks.put(pos, b);
+			if (isSolid(state)) {
+
+				PxRigidStatic b = physics.createRigidStatic(new PxTransform(
+						new PxVec3((float) pos.getX() + 0.5f, (float) pos.getY() + 0.5f, (float) pos.getZ() + 0.5f),
+						new PxQuat(PxIDENTITYEnum.PxIdentity)));
+
+				PxShape s = physics.createShape(new PxBoxGeometry(0.5f, 0.5f, 0.5f), default_material, true, px_flags);
+				s.setSimulationFilterData(new PxFilterData(1, 1, 0, 0));
+				b.attachShape(s);
+				phys_world.addActor(b);
+
+				blocks.put(pos, Optional.of(b));
+			} else if (!isSolid(state)) {
+
+				blocks.put(pos, Optional.absent());
+
+			}
 		}
-
 	}
 
 	public static void enusureLoadedArea(BlockPos pos, World world) {
@@ -107,9 +116,20 @@ public class Minecartphysics implements ModInitializer {
 
 	public static void unloadBlock(BlockPos pos) {
 		if (blocks.containsKey(pos)) {
-			blocks.get(pos).release();
+			if (blocks.get(pos).isPresent())
+				blocks.get(pos).get().release();
 			blocks.remove(pos);
 		}
+	}
+
+	public static void recheckLoadedBlocks(World world) {
+
+		for (var cart : carts) {
+
+			enusureLoadedArea(cart.getBlockPos(), world);
+
+		}
+
 	}
 
 	@Override
@@ -117,6 +137,8 @@ public class Minecartphysics implements ModInitializer {
 		// This code runs as soon as Minecraft is in a mod-load-ready state.
 		// However, some things (like resources) may still be uninitialized.
 		// Proceed with mild caution.
+
+		GravityGun.initalize();
 
 		carts = new ArrayList<>();
 
@@ -136,10 +158,12 @@ public class Minecartphysics implements ModInitializer {
 		desc.setCpuDispatcher(PxTopLevelFunctions.DefaultCpuDispatcherCreate(4));
 
 		phys_world = physics.createScene(desc);
-		ServerTickEvents.START_WORLD_TICK.register((world) -> {
+		ServerTickEvents.END_WORLD_TICK.register((world) -> {
 			if (world.isClient())
 				return;
 			for (int i = 0; i < 8; i++) {
+				while (locked) {
+				}
 				locked = true;
 				phys_world.simulate(1.0f / 20.0f / 8.0f);
 				phys_world.fetchResults(true);

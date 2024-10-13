@@ -130,11 +130,13 @@ public class PhysicsEntity extends MinecartEntity {
             return ActionResult.SUCCESS;
         } else {
 
-            if (player.getPose() == EntityPose.CROUCHING) {
+            if (player.isHolding(GravityGun.GRAVITY_GUN) || player.isInPose(EntityPose.CROUCHING)) {
                 this.setVelocity(
                         new Vec3d(-Math.sin(player.getHeadYaw() * (3.14 / 180.0f)), 0.0f,
                                 Math.cos(player.getHeadYaw() * (3.14 / 180.f)))
+                                .multiply(player.isHolding(GravityGun.GRAVITY_GUN) ? 5.f : 1.0f)
                                 .add(this.getVelocity()));
+                return ActionResult.CONSUME;
             }
 
             return player.startRiding(this) ? ActionResult.CONSUME : ActionResult.PASS;
@@ -173,6 +175,11 @@ public class PhysicsEntity extends MinecartEntity {
         body.setLinearVelocity(pxVec3);
 
     }
+
+    // public PhysicsEntity(World world, double x, double y, double z) {
+    // super(Minecartphysics.PHYS_ENTITY, world);
+    // setPosition(x, y, z);
+    // }
 
     @Override
     public void setPosition(double x, double y, double z) {
@@ -349,12 +356,12 @@ public class PhysicsEntity extends MinecartEntity {
 
         if (new_p_1 != null && new_p_2 != null) {
 
+            setPosition(new_p_1.add(new_p_2).multiply(0.5).add(0.0, 0.5, 0.0));
+
             if (!on_rail) {
                 on_rail = true;
                 body.detachShape(pxShape);
             }
-
-            setPosition(new_p_1.add(new_p_2).multiply(0.5).add(0.0, 0.5f, 0.0));
 
             if (r_pos == null)
                 return; // How
@@ -368,46 +375,38 @@ public class PhysicsEntity extends MinecartEntity {
                 return;
             }
 
-            Pair<Vec3i, Vec3i> pair = getAdjacentRailPositionsByShape(r_state);
-            BlockPos bp = getBlockPosition();
-            if (pair.getFirst() != null && pair.getSecond() != null) {
-                Vector3f direction = new Vector3f((float) (new_p_1.x - new_p_2.x), (float) (new_p_1.y - new_p_2.y),
-                        (float) (new_p_1.z - new_p_2.z));
-                direction = direction.mul(-1.0f).normalize();
-                Minecartphysics.LOGGER.info("First: {}, {}, {}.", pair.getFirst().getX(), pair.getFirst().getY(),
-                        pair.getFirst().getZ());
-                Minecartphysics.LOGGER.info("Second: {}, {}, {}.", pair.getSecond().getX(), pair.getSecond().getY(),
-                        pair.getSecond().getZ());
-                Vector3f right = direction.cross(new Vector3f(0.0f, 1.0f, 0.0f), new Vector3f(0.0f, 0.0f, 0.0f))
-                        .normalize();
-                Vector3f up = direction.cross(right, new Vector3f(0.0f, 0.0f, 0.0f)).normalize();
-                Quaternionf rotationQuat = new Quaternionf().setFromUnnormalized(new Matrix3f(
-                        right,
-                        up,
-                        direction));
+            Vector3f direction = new Vector3f((float) (new_p_1.x - new_p_2.x), (float) (new_p_1.y - new_p_2.y),
+                    (float) (new_p_1.z - new_p_2.z));
+            direction = direction.mul(-1.0f).normalize();
+            Vector3f right = direction.cross(new Vector3f(0.0f, 1.0f, 0.0f), new Vector3f(0.0f, 0.0f, 0.0f))
+                    .normalize();
+            Vector3f up = direction.cross(right, new Vector3f(0.0f, 0.0f, 0.0f)).normalize();
+            Quaternionf rotationQuat = new Quaternionf().setFromUnnormalized(new Matrix3f(
+                    right,
+                    up,
+                    direction));
 
-                rotationQuat.rotateAxis((float) Math.PI / 2.0f, new Vector3f(0.0f, 1.0f, 0.0f));
+            rotationQuat.rotateAxis((float) Math.PI / 2.0f, new Vector3f(0.0f, 1.0f, 0.0f));
 
-                Vector3f old_direction = getRotation().positiveX(new Vector3f());
-                Vector3f new_direction = rotationQuat.positiveX(new Vector3f());
+            Vector3f old_direction = getRotation().positiveX(new Vector3f());
+            Vector3f new_direction = rotationQuat.positiveX(new Vector3f());
 
-                Vector3f angular_velocity = old_direction.cross(new_direction, new Vector3f());
-                angular_velocity.mul(1.0f / dt);
+            Vector3f angular_velocity = old_direction.cross(new_direction, new Vector3f());
+            angular_velocity.mul(1.0f / dt);
 
-                setAngularVelocity(angular_velocity);
+            setAngularVelocity(angular_velocity);
 
-                setRotation(rotationQuat);
-                // body.setAngularVelocity(new PxVec3(0.0f, 0.0f, 0.0f));
+            setRotation(rotationQuat);
+            // body.setAngularVelocity(new PxVec3(0.0f, 0.0f, 0.0f));
 
-                double sign_direction = Math.signum(getVelocity().dotProduct(new Vec3d(direction)));
-                sign_direction = sign_direction >= 0.0 ? 1.0 : -1.0;
+            double sign_direction = Math.signum(getVelocity().dotProduct(new Vec3d(direction)));
+            sign_direction = sign_direction >= 0.0 ? 1.0 : -1.0;
 
-                Vec3d flat_vel = getVelocity().add(new Vec3d(up.mul((float) -getVelocity().dotProduct(new Vec3d(up)))));
+            Vec3d flat_vel = getVelocity().add(new Vec3d(up.mul((float) -getVelocity().dotProduct(new Vec3d(up)))));
 
-                setVelocity(new Vec3d(flat_vel.x, flat_vel.y, flat_vel.z));
-                float vel_before = (float) getVelocity().length();
-                setVelocity(new Vec3d(direction.mul((float) sign_direction * vel_before)));
-            }
+            setVelocity(new Vec3d(flat_vel.x, flat_vel.y, flat_vel.z));
+            float vel_before = (float) getVelocity().length();
+            setVelocity(new Vec3d(direction.mul((float) sign_direction * vel_before)));
 
             if (rb_state.isOf(Blocks.POWERED_RAIL)
                     && getVelocity().length() > 0.0f) {
@@ -463,7 +462,6 @@ public class PhysicsEntity extends MinecartEntity {
 
             return;
         }
-
         return;
     }
 
